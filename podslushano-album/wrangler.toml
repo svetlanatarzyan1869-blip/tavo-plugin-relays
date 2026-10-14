@@ -1,0 +1,20 @@
+name = "podslushano-album"
+main = "worker.js"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+# сохранёнки лежат статикой в ./public (NN.jpg); build.py плагина кладёт их туда
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+# логи: панель Cloudflare → Workers & Pages → podslushano-album → Logs (хранятся 3 дня)
+[observability]
+enabled = true
+
+# то же, что включено в панели (вкладка Observability): без этих строк
+# следующий wrangler deploy сбросил бы настройку
+[observability.logs]
+enabled = true
+invocation_logs = true
+persist = true
