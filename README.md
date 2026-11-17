@@ -19,7 +19,7 @@
 
 **Зачем мем-обложке сервер.** Плагин просит мем у memegen.link, но прямой запрос к картинке из Tavo может зависнуть. Сервер скачивает картинку сам и отдаёт её плагину целиком.
 
-Релей к модели (`/relay`) из `podslushano-album` убран. Остался только старый адрес `/img/NN` с картинками стены для расширения «Подслушано», которое больше не поддерживается. Ни ключа, ни переписки он не получает.
+В `podslushano-album` также остались старые адреса `/img/NN` (картинки стены) и `/relay` (релей к модели). Их использовало расширение «Подслушано», которое больше не поддерживается, и текущие плагины к ним не обращаются.
 
 ## Чего эти серверы НЕ делают
 
@@ -52,7 +52,7 @@ The old relays `pusya-bio-proxy` and `story-relay` are shut down and their code 
 
 **Why the meme cover needs a server.** The plugin asks memegen.link for a meme, but loading that image directly inside Tavo can hang. The server downloads the image itself and hands it to the plugin in one piece.
 
-The model relay (`/relay`) has been removed from `podslushano-album`. Only the old `/img/NN` route (wall pictures for the discontinued Overheard extension) remains; it receives no key and no chat.
+`podslushano-album` still has the old `/img/NN` (wall pictures) and `/relay` (model relay) routes. They were used by the discontinued Overheard extension; current plugins do not call them.
 
 ## What these servers do NOT do
 
