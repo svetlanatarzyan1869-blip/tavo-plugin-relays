@@ -1,89 +1,63 @@
-# Серверы плагинов Светлячка для Tavo и SillyTavern
+# Серверы плагинов Светлячка для Tavo
 
-Здесь лежит исходный код всех серверов-посредников (релеев), через которые работают мои плагины. Он открыт, чтобы любой мог сам проверить, что серверы делают с ключом и перепиской: **передают дальше провайдеру и ничего не сохраняют**.
+Здесь лежит исходный код серверов, к которым обращаются мои плагины. Он открыт, чтобы любой мог сам проверить, что эти серверы получают и что с этим делают.
 
 *English version below.*
 
-## Что здесь
+## Главное: ключ и переписка через мои серверы больше не ходят
 
-| Папка | Где работает | Какие плагины используют | Что получает |
+Раньше запросы к модели шли через серверы-посредники (релеи). Теперь «Цикл и беременность», «Сплетник» и «Сюжет: варианты» обращаются к провайдеру **напрямую с твоего устройства**, а Storyline релеем не пользуется совсем. Ключ хранится в закрытых настройках плагина и уходит только к провайдеру, которого ты сама указала.
+
+Старые релеи `pusya-bio-proxy` и `story-relay` выключены, их код убран из репозитория (он остался в истории git).
+
+## Что ещё работает
+
+| Папка | Где работает | Какой плагин использует | Что получает |
 |---|---|---|---|
-| `pusya-bio-proxy/` | `https://pusya-bio-proxy.spletnik-meme-worker.workers.dev` (Cloudflare Workers) | Цикл и беременность (Tavo и SillyTavern), Сплетник | ключ, адрес провайдера, модель, сообщения для модели |
-| `podslushano-album/` | `https://podslushano-album.spletnik-meme-worker.workers.dev` (Cloudflare Workers) | Подслушано: `/relay` (модель) и `/img/NN` (картинки стены) | для `/relay` — ключ, адрес, модель, сообщения |
-| `story-relay/` | `https://story-proxy-one.vercel.app/api/relay` (Vercel) | Сюжет: варианты | ключ, адрес, модель, сообщения |
-| `spletnik-meme/` | `https://spletnik-meme.spletnik-meme-worker.workers.dev` (Cloudflare Workers) | Сплетник, мем-обложка | номер шаблона мема и подписи (без ключа и переписки) |
+| `spletnik-meme/` | `https://spletnik-meme.spletnik-meme-worker.workers.dev` (Cloudflare Workers) | Сплетник: мем-обложка выпуска | номер шаблона мема и две подписи. Ни ключа, ни переписки |
+| `podslushano-album/` | `https://podslushano-album.spletnik-meme-worker.workers.dev` (Cloudflare Workers) | Storyline: общий рейтинг (`/lb`) | имя, которое ты сама вписала для рейтинга, и счётчики. Ни ключа, ни переписки |
 
-Картинки альбома Подслушано (`public/`) сюда не выложены: это только статика, кода в них нет.
+**Зачем мем-обложке сервер.** Плагин просит мем у memegen.link, но прямой запрос к картинке из Tavo может зависнуть. Сервер скачивает картинку сам и отдаёт её плагину целиком.
 
-## Зачем нужен посредник
+В `podslushano-album` также остались старые адреса `/img/NN` (картинки стены) и `/relay` (релей к модели). Их использовало расширение «Подслушано», которое больше не поддерживается, и текущие плагины к ним не обращаются.
 
-1. **Плагин не может обратиться к провайдеру напрямую.** Плагин работает внутри веб-страницы: в Tavo это встроенный браузер, в SillyTavern — вкладка браузера. Большинство провайдеров и шлюзов не разрешают запросы с веб-страниц, и браузер их блокирует (это называется CORS). Поэтому запрос отправляет сервер. SillyTavern устроена так же: её ключи ходят к провайдерам через её собственный сервер.
-2. **Плагинам нужна отдельная модель**, чтобы не трогать основной чат. Своего способа обратиться ко второму провайдеру Tavo плагинам не даёт.
-3. **Почему Cloudflare.** Бесплатный Vercel обрывает запрос на 60-й секунде, а «думающие» модели отвечают по 1–2 минуты. Cloudflare Workers почти не считает время ожидания ответа модели и держит соединение, пока модель думает.
+## Чего эти серверы НЕ делают
 
-## Что делает релей
-
-- чистит ключ от символов, которые подставляет автозамена телефона;
-- приводит адрес провайдера к виду `…/v1/chat/completions`;
-- даёт «думающим» моделям запас токенов, иначе ответ приходит пустым;
-- достаёт текст из ответов разного формата и превращает ошибки в понятный текст;
-- **ходит только к адресам в интернете:** внутренние адреса (localhost, 10.x, 192.168.x, 169.254.x…) отклоняются;
-- ограничивает размер запроса и `max_tokens`.
-
-## Чего релей НЕ делает
-
-- **Ничего не хранит.** Базы данных нет, запрос живёт только в памяти, пока идёт ответ.
-- **Не пишет ключ и переписку в логи.**
-  - `pusya-bio-proxy`, `story-relay` и `spletnik-meme` не пишут в лог вообще ничего (в коде нет ни одного `console.log`).
-  - `podslushano-album` пишет одну строку на запрос: время, адрес провайдера, модель, код ответа, длину ответа. Если была ошибка, туда попадает её короткий текст, из которого вырезано всё, что похоже на ключ.
-- **Не тратит чужие ключи.** Своих ключей у релея нет, он использует только тот, что пришёл в запросе.
-
-Ключ хранится только у пользователя: в закрытых настройках плагина (Tavo) или в настройках расширения (SillyTavern).
-
-## Как это проверить
-
-- Код в этом репозитории — тот, что развёрнут по адресам выше. Cloudflare и Vercel не умеют показывать снаружи, какой код запущен, поэтому каждое изменение серверов будет появляться здесь отдельным коммитом.
-- В SillyTavern можно вообще обойтись без релея: «Голос за кадром» и «Репутация» по умолчанию берут модель из подключения самой таверны, тогда ключ никуда не уходит. В Цикл для SillyTavern такой режим добавляется.
-- Совет для любых плагинов со второй моделью: заведите отдельный ключ с небольшим лимитом трат.
+- **Не получают ключ и переписку.** Их не отправляет ни один текущий плагин.
+- **Не пишут лишнего в логи.** В `spletnik-meme` нет ни одного `console.log`.
+- **Не тратят чужие ключи.** Своих ключей у серверов нет.
 
 Вопросы, ошибки, предложения: https://tavo-hub.vercel.app/feedback
 
 ---
 
-# Relay servers for Svetlyachok's Tavo and SillyTavern plugins
+# Server code for Svetlyachok's Tavo plugins
 
-This repository contains the source code of every relay server my plugins use. It is public so anyone can check what the servers do with your API key and chat: **they pass the request on to your provider and store nothing**.
+This repository contains the source code of the servers my plugins talk to. It is public so anyone can check what these servers receive and what they do with it.
 
 *English is not my native language — if something reads oddly, I'd love to know.*
 
-## What is here
+## The main thing: your key and chat no longer pass through my servers
+
+Model requests used to go through relay servers. Now Cycle & Pregnancy, The Gossip and Story Paths call your provider **directly from your device**, and Storyline does not use a relay at all. The key is kept in the plugin's private settings and is only sent to the provider you chose.
+
+The old relays `pusya-bio-proxy` and `story-relay` are shut down and their code has been removed from this repository (it is still in the git history).
+
+## What is still running
 
 | Folder | Runs at | Used by | Receives |
 |---|---|---|---|
-| `pusya-bio-proxy/` | `https://pusya-bio-proxy.spletnik-meme-worker.workers.dev` (Cloudflare Workers) | Cycle & Pregnancy (Tavo and SillyTavern), The Gossip | key, provider URL, model, messages for the model |
-| `podslushano-album/` | `https://podslushano-album.spletnik-meme-worker.workers.dev` (Cloudflare Workers) | Overheard: `/relay` (model) and `/img/NN` (wall pictures) | for `/relay`: key, provider URL, model, messages |
-| `story-relay/` | `https://story-proxy-one.vercel.app/api/relay` (Vercel) | Story Paths | key, provider URL, model, messages |
-| `spletnik-meme/` | `https://spletnik-meme.spletnik-meme-worker.workers.dev` (Cloudflare Workers) | The Gossip, meme cover | meme template id and captions (no key, no chat) |
+| `spletnik-meme/` | `https://spletnik-meme.spletnik-meme-worker.workers.dev` (Cloudflare Workers) | The Gossip: issue meme cover | meme template id and two captions. No key, no chat |
+| `podslushano-album/` | `https://podslushano-album.spletnik-meme-worker.workers.dev` (Cloudflare Workers) | Storyline: shared leaderboard (`/lb`) | the name you typed for the leaderboard and counters. No key, no chat |
 
-## Why a relay is needed
+**Why the meme cover needs a server.** The plugin asks memegen.link for a meme, but loading that image directly inside Tavo can hang. The server downloads the image itself and hands it to the plugin in one piece.
 
-1. **A plugin cannot call the provider directly.** Plugins run inside a web page (Tavo's built-in browser, or a SillyTavern browser tab). Most providers and gateways do not allow requests from web pages, so the browser blocks them (CORS). A server has to send the request instead — SillyTavern itself works the same way.
-2. **The plugins use a separate model** so the main chat is not affected, and Tavo gives plugins no other way to reach a second provider.
-3. **Why Cloudflare:** free Vercel cuts requests at 60 seconds, while thinking models often need 1–2 minutes. Cloudflare Workers barely bill the waiting time and keep the connection alive.
+`podslushano-album` still has the old `/img/NN` (wall pictures) and `/relay` (model relay) routes. They were used by the discontinued Overheard extension; current plugins do not call them.
 
-## What the relay does
+## What these servers do NOT do
 
-- cleans the key from characters inserted by phone autocorrect;
-- normalizes the provider URL to `…/v1/chat/completions`;
-- gives thinking models enough token budget (otherwise they return an empty answer);
-- extracts text from different response formats and returns readable errors;
-- **only calls public internet addresses**: internal ones (localhost, 10.x, 192.168.x, 169.254.x…) are rejected;
-- limits request size and `max_tokens`.
-
-## What the relay does NOT do
-
-- **Stores nothing.** No database; a request only lives in memory while the answer is coming.
-- **Does not log your key or chat.** `pusya-bio-proxy`, `story-relay` and `spletnik-meme` log nothing at all. `podslushano-album` logs one line per request: time, provider host, model, status, answer length, plus a short error text with anything key-like removed.
-- **Never spends someone else's key.** The relay has no keys of its own; it only uses the one in the request.
+- **They never receive your key or chat.** No current plugin sends them.
+- **They do not log more than needed.** `spletnik-meme` has no `console.log` at all.
+- **They never spend anyone's key.** The servers have no keys of their own.
 
 Feedback, bug reports and ideas: https://tavo-hub.vercel.app/feedback
